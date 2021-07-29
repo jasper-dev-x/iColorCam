@@ -7,6 +7,9 @@ export default function Camera() {
     var colorSet = new Set();
     var colorMap = new Map();
     var colorList = [];
+    var REDS = [];
+    var BLUES = [];
+    var GREENS = [];
     var localTopColors = [];
     const [topColors, setTopColors] = useState([]);
     const [CAMSTREAM, setCAMSTREAM] = useState();
@@ -19,10 +22,6 @@ export default function Camera() {
 
     useEffect(() => {
         startCam();
-    }, []);
-
-    useEffect(() => {
-
     }, []);
 
     const startCam = () => {
@@ -69,11 +68,11 @@ export default function Camera() {
             const b = imgData.data[x + 2];
             // const a = imgData.data[x + 3];
 
-            // FILTERING OUT INSIGNIFICANT COLORS
-            let colorDiff = 25;
-            let colorMin = 30;
+            // FILTERING OUT MONOCHROME COLORS
+            let colorDiff = 20;
+
             if ((r - g > colorDiff || g - r > colorDiff) || (r - b > colorDiff || b - r > colorDiff) || (g - b > colorDiff || b - g > colorDiff)) {
-                if ((r > colorMin || g > colorMin || b > colorMin)) {
+                if (r + g + b > 100) {
                     let pixelColor = `${rgbStringify(r)}${rgbStringify(g)}${rgbStringify(b)}`;
                     colorSet.add(pixelColor);
                     colorList.push(pixelColor);
@@ -112,7 +111,7 @@ export default function Camera() {
     };
 
     const getTopColors = async () => {
-        let topOfList = Array.from(colorMap.values()).sort((a, b) => b.toString() - a.toString()).slice(10, 50);
+        let topOfList = Array.from(colorMap.values()).sort((a, b) => b.toString() - a.toString()).slice(0, 40);
         colorMap.forEach(async (value, key) => {
             let z = topOfList.find((top) => top === value);
             if (z) {
@@ -123,7 +122,7 @@ export default function Camera() {
                 await localTopColors.push({ r, g, b });
             }
         });
-        await setTopColors([...localTopColors]);
+        await setTopColors([...localTopColors.reverse()]);
         localTopColors = [];
     };
 
@@ -143,34 +142,34 @@ export default function Camera() {
 
             // FILTER COLORS THAT ARE WITHIN 10 FROM CHOSEN COLOR
             let margin = 20;
-            let offset = -20;
+            let offset = 50;
 
-            if ((r > color.r - margin && r < color.r + margin) && (g > color.g - margin && g < color.g + margin) && (b > color.b - margin && b < color.b + margin)) {
-                imgData.data[x] = r;
-                imgData.data[x + 1] = g;
-                imgData.data[x + 2] = b;
-                imgData.data[x + 3] = a;
-            } else if (r > g && r > b) {
-                imgData.data[x] = r + offset;
-                imgData.data[x + 1] = r + offset;
-                imgData.data[x + 2] = r + offset;
-                imgData.data[x + 3] = a;
-            } else if (g > r && g > b) {
-                imgData.data[x] = g + offset;
-                imgData.data[x + 1] = g + offset;
-                imgData.data[x + 2] = g + offset;
-                imgData.data[x + 3] = a;
-            } else if (b > r && b > g) {
-                imgData.data[x] = b + offset;
-                imgData.data[x + 1] = b + offset;
-                imgData.data[x + 2] = b + offset;
-                imgData.data[x + 3] = a;
-            } else {
-                imgData.data[x] = r;
-                imgData.data[x + 1] = g;
-                imgData.data[x + 2] = b;
-                imgData.data[x + 3] = a;
-            }
+            // if ((r > color.r - margin && r < color.r + margin) && (g > color.g - margin && g < color.g + margin) && (b > color.b - margin && b < color.b + margin)) {
+            //     imgData.data[x] = r;
+            //     imgData.data[x + 1] = g;
+            //     imgData.data[x + 2] = b;
+            //     imgData.data[x + 3] = a;
+            // } else if (r > g && r > b) {
+            //     imgData.data[x] = r + offset < 255 ? r + offset : 255;
+            //     imgData.data[x + 1] = r + offset < 255 ? r + offset : 255;
+            //     imgData.data[x + 2] = r + offset < 255 ? r + offset : 255;
+            //     imgData.data[x + 3] = a;
+            // } else if (g > r && g > b) {
+            //     imgData.data[x] = g + offset < 255 ? g + offset : 255;
+            //     imgData.data[x + 1] = g + offset < 255 ? g + offset : 255;
+            //     imgData.data[x + 2] = g + offset < 255 ? g + offset : 255;
+            //     imgData.data[x + 3] = a;
+            // } else if (b > r && b > g) {
+            //     imgData.data[x] = b + offset < 255 ? b + offset : 255;
+            //     imgData.data[x + 1] = b + offset < 255 ? b + offset : 255;
+            //     imgData.data[x + 2] = b + offset < 255 ? b + offset : 255;
+            //     imgData.data[x + 3] = a;
+            // } else {
+            //     imgData.data[x] = r + offset < 255 ? r + offset : 255;
+            //     imgData.data[x + 1] = g + offset < 255 ? g + offset : 255;
+            //     imgData.data[x + 2] = b + offset < 255 ? b + offset : 255;
+            //     imgData.data[x + 3] = a;
+            // }
         };
         // PAINT FILTERED OUT COLORS
         await ctx.putImageData(imgData, 0, 0);
