@@ -7,11 +7,8 @@ export default function Camera() {
     var colorSet = new Set();
     var colorMap = new Map();
     var colorList = [];
-    var REDS = [];
-    var BLUES = [];
-    var GREENS = [];
-    var localTopColors = [];
-    const [topColors, setTopColors] = useState([]);
+    var localTopColors = { R: [], G: [], B: [], X: [] };
+    const [topColors, setTopColors] = useState({ R: [], G: [], B: [], X: [] });
     const [CAMSTREAM, setCAMSTREAM] = useState();
     const [IMAGEDATA, setIMAGEDATA] = useState();
     const video = useRef();
@@ -72,7 +69,7 @@ export default function Camera() {
             let colorDiff = 20;
 
             if ((r - g > colorDiff || g - r > colorDiff) || (r - b > colorDiff || b - r > colorDiff) || (g - b > colorDiff || b - g > colorDiff)) {
-                if (r + g + b > 100) {
+                if (r + g + b > 100 && r + g + b < 700) {
                     let pixelColor = `${rgbStringify(r)}${rgbStringify(g)}${rgbStringify(b)}`;
                     colorSet.add(pixelColor);
                     colorList.push(pixelColor);
@@ -101,7 +98,7 @@ export default function Camera() {
 
     const resetCanvas = async () => {
         await startCam();
-        await setTopColors([]);
+        await setTopColors(localTopColors);
         const ctx = await canvas.current.getContext("2d");
         ctx.clearRect(0, 0, XY, XY);
         canvas.current.classList.add("d-none");
@@ -111,19 +108,38 @@ export default function Camera() {
     };
 
     const getTopColors = async () => {
-        let topOfList = Array.from(colorMap.values()).sort((a, b) => b.toString() - a.toString()).slice(0, 40);
+        let topOfList = Array.from(colorMap.values()).sort((a, b) => b - a).slice(0, 200);
+        let nextList = colorMap.keys();
+        await nextList.next();
+
         colorMap.forEach(async (value, key) => {
+            let nextPixel = nextList.next().value;
+
             let z = topOfList.find((top) => top === value);
             if (z) {
                 let r = parseInt(key.slice(0, 3));
                 let g = parseInt(key.slice(3, 6));
                 let b = parseInt(key.slice(6, 9));
+                let rNxt = parseInt(nextPixel.slice(0, 3));
+                let gNxt = parseInt(nextPixel.slice(3, 6));
+                let bNxt = parseInt(nextPixel.slice(6, 9));
 
-                await localTopColors.push({ r, g, b });
+                const rgbX = 3;
+
+                if (Math.abs(r - rNxt) > rgbX || Math.abs(g - gNxt) > rgbX || Math.abs(b - bNxt) > rgbX) {
+                    if (r > g + rgbX && r > b + rgbX)
+                        await localTopColors.R.push({ r, g, b });
+                    else if (g > r + rgbX && g > b + rgbX)
+                        await localTopColors.G.push({ r, g, b });
+                    else if (b > g + rgbX && b > r + rgbX)
+                        await localTopColors.B.push({ r, g, b });
+                    else
+                        await localTopColors.X.push({ r, g, b });
+                }
             }
         });
-        await setTopColors([...localTopColors.reverse()]);
-        localTopColors = [];
+        await setTopColors({ R: [...localTopColors.R], G: [...localTopColors.G], B: [...localTopColors.B], X: [...localTopColors.X] });
+        localTopColors = { R: [], G: [], B: [], X: [] };
     };
 
     const filterColor = async (color) => {
@@ -141,63 +157,63 @@ export default function Camera() {
             let a = 255;
 
             // FILTER COLORS THAT ARE WITHIN 10 FROM CHOSEN COLOR
-            let margin = 20;
+            let margin = 10;
             let offset = 50;
+            let pixelRow = XY * 4;
 
-            // if ((r > color.r - margin && r < color.r + margin) && (g > color.g - margin && g < color.g + margin) && (b > color.b - margin && b < color.b + margin)) {
-            //     imgData.data[x] = r;
-            //     imgData.data[x + 1] = g;
-            //     imgData.data[x + 2] = b;
-            //     imgData.data[x + 3] = a;
-            // } else if (r > g && r > b) {
-            //     imgData.data[x] = r + offset < 255 ? r + offset : 255;
-            //     imgData.data[x + 1] = r + offset < 255 ? r + offset : 255;
-            //     imgData.data[x + 2] = r + offset < 255 ? r + offset : 255;
-            //     imgData.data[x + 3] = a;
-            // } else if (g > r && g > b) {
-            //     imgData.data[x] = g + offset < 255 ? g + offset : 255;
-            //     imgData.data[x + 1] = g + offset < 255 ? g + offset : 255;
-            //     imgData.data[x + 2] = g + offset < 255 ? g + offset : 255;
-            //     imgData.data[x + 3] = a;
-            // } else if (b > r && b > g) {
-            //     imgData.data[x] = b + offset < 255 ? b + offset : 255;
-            //     imgData.data[x + 1] = b + offset < 255 ? b + offset : 255;
-            //     imgData.data[x + 2] = b + offset < 255 ? b + offset : 255;
-            //     imgData.data[x + 3] = a;
-            // } else {
-            //     imgData.data[x] = r + offset < 255 ? r + offset : 255;
-            //     imgData.data[x + 1] = g + offset < 255 ? g + offset : 255;
-            //     imgData.data[x + 2] = b + offset < 255 ? b + offset : 255;
-            //     imgData.data[x + 3] = a;
-            // }
+            // x < (XY * XY)-> Covers 25% of rows top to bottom fully
+            // x % pixelRow < (pixelRow * .25) -> Covers first 25% of columns left to right fully
+            // SHOULD cover top left 1/8 of cam view
+            if (x % pixelRow < (pixelRow * .25) && x < (XY * XY)) {
+                imgData.data[x] = color.r;
+                imgData.data[x + 1] = color.g;
+                imgData.data[x + 2] = color.b;
+                imgData.data[x + 3] = a;
+            } else if ((r > color.r - margin && r < color.r + margin) && (g > color.g - margin && g < color.g + margin) && (b > color.b - margin && b < color.b + margin)) {
+                imgData.data[x] = color.r;
+                imgData.data[x + 1] = color.g;
+                imgData.data[x + 2] = color.b;
+                imgData.data[x + 3] = a;
+            }
+            else if (r > g && r > b) {
+                imgData.data[x] = r + offset < 255 ? r + offset : 255;
+                imgData.data[x + 1] = r + offset < 255 ? r + offset : 255;
+                imgData.data[x + 2] = r + offset < 255 ? r + offset : 255;
+                imgData.data[x + 3] = a;
+            } else if (g > r && g > b) {
+                imgData.data[x] = g + offset < 255 ? g + offset : 255;
+                imgData.data[x + 1] = g + offset < 255 ? g + offset : 255;
+                imgData.data[x + 2] = g + offset < 255 ? g + offset : 255;
+                imgData.data[x + 3] = a;
+            } else if (b > r && b > g) {
+                imgData.data[x] = b + offset < 255 ? b + offset : 255;
+                imgData.data[x + 1] = b + offset < 255 ? b + offset : 255;
+                imgData.data[x + 2] = b + offset < 255 ? b + offset : 255;
+                imgData.data[x + 3] = a;
+            } else {
+                imgData.data[x] = r + offset < 255 ? r + offset : 255;
+                imgData.data[x + 1] = g + offset < 255 ? g + offset : 255;
+                imgData.data[x + 2] = b + offset < 255 ? b + offset : 255;
+                imgData.data[x + 3] = a;
+            }
         };
         // PAINT FILTERED OUT COLORS
         await ctx.putImageData(imgData, 0, 0);
     };
 
+    const borderRadius = 10;
     return (
         <div className="d-flex flex-fill flex-column align-items-center justify-content-between">
 
             {/* CAMERA VIEW */ }
-            <div className="card border-0">
-                <canvas ref={ canvas } width={ XY } height={ XY } className="d-none" />
-                <video ref={ video } width={ XY } height={ XY } />
-                <div className="d-flex flex-fill card-img-overlay align-items-end">
-                    <div className="d-flex flex-fill justify-content-between">
-                        <Link to="/" className="btn btn-dark" onClick={ () => stopCam() }>
-                            <span>Back</span>
-                        </Link>
-                        <button ref={ capture } className="btn btn-primary" onClick={ () => loadCanvas() }> CAPTURE </button>
-                        <button ref={ reset } className="btn btn-danger d-none" onClick={ () => resetCanvas() }> RESET </button>
-                    </div>
-                </div>
+            <div className="card shadow-lg" style={{borderRadius}}>
+                <canvas ref={ canvas } width={ XY } height={ XY } className="d-none" style={{borderRadius}} />
+                <video ref={ video } width={ XY } height={ XY } style={{borderRadius}}/>
             </div>
 
             {/* TOP COLORS */ }
-            <div className="d-flex flex-fill centered">
-                <div className="d-flex flex-column bg-light my-2 overflow-auto" style={ { width: XY - 10, borderRadius: 10, height: '32vh' } }>
-                    <ColorList topColors={ topColors } filterColor={ filterColor } />
-                </div>
+            <div className="d-flex flex-fill">
+                <ColorList topColors={ topColors } filterColor={ filterColor } stopCam={ stopCam } capture={ capture } loadCanvas={ loadCanvas } reset={ reset } resetCanvas={ resetCanvas } />
             </div>
 
             {/* <button className="btn btn-info" onClick={ () => console.log(topColors) }>LOG</button> */ }

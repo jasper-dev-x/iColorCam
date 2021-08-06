@@ -12,3 +12,7 @@
 .fadeIn {
   animation: fadeInAnimation 1s;
 }
+
+.bgHome {
+  background-image: linear-gradient(red, orange, yellowgreen, green, blue, purple);
+}

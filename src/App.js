@@ -7,7 +7,7 @@ import Camera from './pages/Camera';
 function App() {
   return (
     <BrowserRouter>
-      <div className="d-flex bg-dark" style={ { minHeight: window.innerHeight } }>
+      <div className="d-flex bg-light" style={ { minHeight: window.innerHeight } }>
         <Switch>
           <Route path="/" exact>
             <Home />
